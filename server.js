@@ -1,8 +1,12 @@
 require('dotenv').config();
 
-
 const express = require('express');
+const cors = require('cors'); // [แก้] เพิ่ม cors
 const app = express();
+
+// [แก้] อนุญาตให้เว็บจากโดเมนอื่น (เช่น Vercel) เรียก API นี้ได้
+// ต้องวางก่อน route ทั้งหมด
+app.use(cors());
 
 // เปิดใช้งานการรับข้อมูลแบบ JSON
 app.use(express.json());
@@ -20,6 +24,11 @@ const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 
 const SECRET_KEY = process.env.JWT_SECRET;
+
+// หน้าแรก (ไม่ให้ขึ้น Cannot GET /)
+app.get('/', (req, res) => {
+  res.json({ message: 'Task API is running' });
+});
 
 // API สมัครสมาชิก (เข้ารหัสรหัสผ่าน)
 app.post('/register', async (req, res) => {
@@ -93,9 +102,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// ... (จะเขียน API ทั้ง 4 เส้นทางตำแหน่งนี้) ...
 // READ (GET): ขอข้อมูลทั้งหมดในคอลเล็กชัน
-// สังเกต: มีคำว่า async หน้า (req, res)
 app.get('/tasks', async (req, res) => {
     try {
         // await สั่งให้โปรแกรม "รอ" จนกว่าจะดึงข้อมูลจาก Cloud กลับมาเสร็จ
@@ -112,12 +119,14 @@ app.get('/tasks', async (req, res) => {
         });
     }
 });
+
 // CREATE (POST): สร้างงานใหม่
 app.post('/tasks', async (req, res) => {
     try {
         // นำข้อมูลที่ส่งมา (req.body) ไปใส่แบบฟอร์มพิมพ์เขียว
         const newTask = new Task({
-            title: req.body.title
+            title: req.body.title,
+            priority: req.body.priority // [แก้] รับ priority จากหน้าเว็บด้วย
         });
 
         // สั่งบันทึกลง Database (ต้องรอให้เซฟเสร็จก่อน)
@@ -173,6 +182,7 @@ app.put('/tasks/:id', async (req, res) => {
 });
 
 // Middleware ฟังก์ชันสำหรับตรวจ Token
+// (ตอนนี้ยังไม่ได้ใช้กับ route ไหน เก็บไว้เผื่อทำระบบล็อกอินในหน้าเว็บ)
 const verifyToken = (req, res, next) => {
 
     // 1. ขอ Token จาก Headers ที่ผู้ใช้ส่งมา
@@ -207,7 +217,9 @@ const verifyToken = (req, res, next) => {
 };
 
 // DELETE (ลบงาน)
-app.delete('/tasks/:id', verifyToken, async (req, res) => {
+// [แก้] เอา verifyToken ออก เพราะหน้าเว็บยังไม่ได้ส่ง Token มา
+// ถ้าต้องการกลับมาใช้ ให้เปลี่ยนเป็น app.delete('/tasks/:id', verifyToken, async ...
+app.delete('/tasks/:id', async (req, res) => {
     try {
 
         // คำสั่งเดียวจบ: ค้นหาด้วย _id แล้วลบชิ้นนี้
